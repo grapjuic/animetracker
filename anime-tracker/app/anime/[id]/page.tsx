@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import useAnimeTracker from '@/lib/useAnimeTracker';
+import { useParams } from 'next/navigation';
 
-export default function AnimeDetail({ params }: { params: { id?: string } }) {
-  const animeId = parseInt(params?.id ?? '0');
+export default function AnimeDetail() {
+  const params = useParams();
+  const animeId = parseInt((params?.id as string) ?? '0');
   const { tracker, addAnime } = useAnimeTracker();
   const [anime, setAnime] = useState<any>(null);
   const [selectedRating, setSelectedRating] = useState<number>(tracker.ratings?.[animeId] || 0);
@@ -43,14 +45,20 @@ export default function AnimeDetail({ params }: { params: { id?: string } }) {
     else if (tracker.dropped.includes(animeId)) setSelectedStatus('dropped');
   }, [tracker, animeId]);
 
-  const handleSave = (status: 'completed' | 'inProgress' | 'dropped') => {
+  const handleStatusUpdate = (status: 'completed' | 'inProgress' | 'dropped') => {
     if (selectedRating < 1 || selectedRating > 10) {
       alert('Please choose a rating from 1 to 10.');
       return;
     }
     addAnime(animeId, status, selectedRating);
     setSelectedStatus(status);
-    alert(`Saved to "${status}" with rating ${selectedRating}/10`);
+  };
+
+  const handleRatingChange = (rating: number) => {
+    setSelectedRating(rating);
+    if (selectedStatus) {
+      addAnime(animeId, selectedStatus as any, rating);
+    }
   };
 
   if (!anime) return <div className="text-white p-10">Loading...</div>;
@@ -81,7 +89,7 @@ export default function AnimeDetail({ params }: { params: { id?: string } }) {
             <label className="block mb-1 text-sm">Your Rating (1–10):</label>
             <select
               value={selectedRating}
-              onChange={(e) => setSelectedRating(Number(e.target.value))}
+              onChange={(e) => handleRatingChange(Number(e.target.value))}
               className="bg-white text-black p-2 rounded"
             >
               <option value={0}>Select rating</option>
@@ -94,24 +102,27 @@ export default function AnimeDetail({ params }: { params: { id?: string } }) {
           </div>
 
           <div className="mt-4 flex gap-4 flex-wrap">
-            <button
-              onClick={() => handleSave('completed')}
-              className={`px-4 py-1 rounded ${selectedStatus === 'completed' ? 'bg-green-600' : 'bg-gray-700'}`}
-            >
-              ✔️ Completed
-            </button>
-            <button
-              onClick={() => handleSave('inProgress')}
-              className={`px-4 py-1 rounded ${selectedStatus === 'inProgress' ? 'bg-yellow-500' : 'bg-gray-700'}`}
-            >
-              📺 In Progress
-            </button>
-            <button
-              onClick={() => handleSave('dropped')}
-              className={`px-4 py-1 rounded ${selectedStatus === 'dropped' ? 'bg-red-600' : 'bg-gray-700'}`}
-            >
-              ❌ Dropped
-            </button>
+            {(['completed', 'inProgress', 'dropped'] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() => handleStatusUpdate(status)}
+                className={`px-4 py-1 rounded ${
+                  selectedStatus === status
+                    ? status === 'completed'
+                      ? 'bg-green-600'
+                      : status === 'inProgress'
+                      ? 'bg-yellow-500'
+                      : 'bg-red-600'
+                    : 'bg-gray-700'
+                }`}
+              >
+                {status === 'completed'
+                  ? '✔️ Completed'
+                  : status === 'inProgress'
+                  ? 'In Progress'
+                  : ' Dropped'}
+              </button>
+            ))}
           </div>
         </div>
       </div>

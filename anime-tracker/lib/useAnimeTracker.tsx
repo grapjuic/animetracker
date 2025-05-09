@@ -1,42 +1,59 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-type Category = 'completed' | 'inProgress' | 'dropped';
+export type Category = 'completed' | 'inProgress' | 'dropped';
+
+type Tracker = {
+  completed: number[];
+  inProgress: number[];
+  dropped: number[];
+  ratings: Record<number, number>;
+};
+
+const initialTracker: Tracker = {
+  completed: [],
+  inProgress: [],
+  dropped: [],
+  ratings: {},
+};
 
 export default function useAnimeTracker() {
-  const [tracker, setTracker] = useState<{
-    completed: number[];
-    inProgress: number[];
-    dropped: number[];
-    ratings: Record<number, number>;
-  }>({
-    completed: [],
-    inProgress: [],
-    dropped: [],
-    ratings: {}
+  const [tracker, setTracker] = useState<Tracker>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('anime-tracker');
+      return stored ? JSON.parse(stored) : initialTracker;
+    }
+    return initialTracker;
   });
-
-  useEffect(() => {
-    const saved = localStorage.getItem('anime-tracker');
-    if (saved) setTracker(JSON.parse(saved));
-  }, []);
 
   useEffect(() => {
     localStorage.setItem('anime-tracker', JSON.stringify(tracker));
   }, [tracker]);
 
-  function addAnime(id: number, category: Category, rating: number) {
-    setTracker((prev) => {
-      const updated = {
-        completed: prev.completed.filter((x) => x !== id),
-        inProgress: prev.inProgress.filter((x) => x !== id),
-        dropped: prev.dropped.filter((x) => x !== id),
-        ratings: { ...prev.ratings, [id]: rating }
+  function addAnime(animeId: number, category: Category, rating: number) {
+    setTracker(prev => {
+      const updated: Tracker = {
+        ...prev,
+        ratings: { ...prev.ratings, [animeId]: rating },
+        completed: prev.completed.filter(id => id !== animeId),
+        inProgress: prev.inProgress.filter(id => id !== animeId),
+        dropped: prev.dropped.filter(id => id !== animeId),
       };
-      updated[category].push(id);
+      updated[category] = [...new Set([...updated[category], animeId])];
       return updated;
     });
   }
 
-  return { tracker, addAnime };
+  function removeAnime(animeId: number, category: Category) {
+    setTracker(prev => {
+      const { [animeId]: _, ...restRatings } = prev.ratings;
+      return {
+        ...prev,
+        [category]: prev[category].filter(id => id !== animeId),
+        ratings: restRatings,
+      };
+    });
+  }
+  
+  return { tracker, addAnime, removeAnime };
 }
